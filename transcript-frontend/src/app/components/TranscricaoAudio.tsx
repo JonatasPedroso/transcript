@@ -1,11 +1,9 @@
-"use client";
-
 import React, { useEffect, useState } from 'react';
 import Notification from './Notification';
 import DropZone from './DropZone';
 import AudioPreview from './AudioPreview';
-import TranscribeButton from './TranscribeButton';
 import TranscribedText from './TranscribedText';
+import TranscribeButton from './TranscribeButton';
 
 const TranscricaoAudio: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
@@ -16,6 +14,7 @@ const TranscricaoAudio: React.FC = () => {
     const [notificationVisible, setNotificationVisible] = useState<boolean>(false);
     const [showNotification, setShowNotification] = useState<boolean>(false);
     const [timer, setTimer] = useState<number>(0);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -57,6 +56,7 @@ const TranscricaoAudio: React.FC = () => {
 
         setNotificationVisible(true);
         setTimer(0);
+        setIsLoading(true);
 
         const formData = new FormData();
         formData.append('audio', file);
@@ -79,6 +79,7 @@ const TranscricaoAudio: React.FC = () => {
             alert("Erro na comunicação com o servidor.");
         } finally {
             setNotificationVisible(false);
+            setIsLoading(false);
         }
     };
 
@@ -93,7 +94,7 @@ const TranscricaoAudio: React.FC = () => {
             {file && (
                 <AudioPreview fileName={file.name} fileUrl={fileUrl} onRemove={handleRemoveAudio} />
             )}
-            <TranscribeButton onClick={handleTranscribe} disabled={!file} />
+            <TranscribeButton onClick={handleTranscribe} disabled={!file || isLoading} isLoading={isLoading} />
             {transcribedText && <TranscribedText text={transcribedText} onChange={handleTextChange} />}
         </div>
     );
