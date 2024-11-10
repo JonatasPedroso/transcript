@@ -1,12 +1,12 @@
 import React from 'react';
 
-interface NotificationProps {
+interface AlertProps {
     visible: boolean;
     text: string;
     timer: number;
 }
 
-const Notification: React.FC<NotificationProps> = ({ visible, text, timer }) => {
+const Alert: React.FC<AlertProps> = ({ visible, text, timer }) => {
     if (!visible) return null;
 
     return (
@@ -21,4 +21,4 @@ const Notification: React.FC<NotificationProps> = ({ visible, text, timer }) => 
     );
 };
 
-export default Notification;
+export default Alert;
