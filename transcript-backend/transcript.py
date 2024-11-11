@@ -1,16 +1,21 @@
 import os
 import whisper
 import torch
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import tempfile
 import subprocess
 from flask_cors import CORS
 import warnings
+from flask_socketio import SocketIO, emit
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 def convert_to_wav(file):
+    start_time = time.time()
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         tmp_filename = tmp_file.name + ".wav"
         tmp_file.close()
@@ -18,55 +23,80 @@ def convert_to_wav(file):
             'ffmpeg', '-i', file, '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', tmp_filename
         ]
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return tmp_filename
+    end_time = time.time()
+    print(f"convert_to_wav took {end_time - start_time:.2f} seconds")
+    socketio.emit('progress_update', {'stage': 'convertendo para wav', 'progress': 25})
+    return tmp_filename
 
 def load_whisper_model(model_name, device):
+    start_time = time.time()
     model_path = os.path.expanduser(f'~/.cache/whisper/{model_name}.pt')
     if os.path.exists(model_path):
         os.remove(model_path)
         print(f"Deleted corrupted model file: {model_path}")
-    return whisper.load_model(model_name, device=device).to(device)
+    model = whisper.load_model(model_name, device=device).to(device)
+    end_time = time.time()
+    print(f"load_whisper_model took {end_time - start_time:.2f} seconds")
+    socketio.emit('progress_update', {'stage': 'carregando modelo whisper', 'progress': 50})
+    return model
 
-@app.route('/transcribe', methods=['POST'])
-def transcribe():
-    if 'audio' not in request.files:
-        return jsonify({"error": "Nenhum arquivo enviado"}), 400
+def transcribe_audio(data):
+    try:
+        print("Starting transcription thread...")
+        audio_data = data['audio']
+        tmp_filename = save_temp_audio_file(audio_data)
+        wav_file = convert_to_wav(tmp_filename)
+        model = load_whisper_model("turbo", get_device())
+        transcription = perform_transcription(model, wav_file)
+        cleanup_temp_files([tmp_filename, wav_file])
+        emit_transcription_result(transcription)
+    except Exception as e:
+        print(f"Error during transcription: {e}")
+        socketio.emit('transcription_error', {'error': "Erro ao transcrever o áudio."})
 
-    file = request.files['audio']
-    if file.filename == '':
-        return jsonify({"error": "Nenhum arquivo selecionado"}), 400
+def save_temp_audio_file(audio_data):
+    start_time = time.time()
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_filename = tmp_file.name
+        tmp_file.write(audio_data)
+    end_time = time.time()
+    print(f"save_temp_audio_file took {end_time - start_time:.2f} seconds")
+    socketio.emit('progress_update', {'stage': 'salvando arquivo de áudio temporário', 'progress': 10})
+    return tmp_filename
 
-    filename = file.filename.lower()
-    valid_extensions = ['.opus', '.dat', '.m4a']
+def get_device():
+    return "cuda" if torch.cuda.is_available() else "cpu"
 
-    if any(filename.endswith(ext) for ext in valid_extensions):
-        try:
-            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                tmp_filename = tmp_file.name
-                file.save(tmp_filename)
+def perform_transcription(model, wav_file):
+    start_time = time.time()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        result = model.transcribe(wav_file, language="pt", temperature=0.0, word_timestamps=True)
+    end_time = time.time()
+    print(f"perform_transcription took {end_time - start_time:.2f} seconds")
+    socketio.emit('progress_update', {'stage': 'realizando transcrição', 'progress': 75})
+    return result["text"]
 
-            wav_file = convert_to_wav(tmp_filename)
+def cleanup_temp_files(files):
+    start_time = time.time()
+    for file in files:
+        os.remove(file)
+    end_time = time.time()
+    print(f"cleanup_temp_files took {end_time - start_time:.2f} seconds")
+    socketio.emit('progress_update', {'stage': 'limpando arquivos temporários', 'progress': 90})
 
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            model = load_whisper_model("turbo", device)
+def emit_transcription_result(transcription):
+    progress = 100
+    socketio.emit('transcription_complete', {'text': transcription, 'progress': progress})
+    print("Transcription result emitted")
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", UserWarning)
-                result = model.transcribe(wav_file, language="pt", temperature=0.0, word_timestamps=True)
-
-            os.remove(tmp_filename)
-            os.remove(wav_file)
-
-            transcription = result["text"]
-
-            return jsonify({"text": transcription})
-
-        except Exception as e:
-            print(f"Error during transcription: {e}")
-            return jsonify({"error": "Erro ao transcrever o áudio."}), 500
-
-    else:
-        return jsonify({"error": "Tipo de arquivo não suportado"}), 400
+@socketio.on('start_transcription')
+def handle_transcription(data):
+    print("Received transcription request")
+    transcription_thread = threading.Thread(target=transcribe_audio, args=(data,))
+    transcription_thread.start()
+    print("Transcription thread started")
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    print("Starting server...")
+    socketio.run(app, debug=True, port=5000)

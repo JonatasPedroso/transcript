@@ -3,4 +3,7 @@ Flask-Cors
 SpeechRecognition
 ffmpeg-python
 torch
-whisper
+openai-whisper
+flask-socketio
+python-socketio
+asyncio
