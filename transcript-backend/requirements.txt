@@ -2,3 +2,5 @@ Flask
 Flask-Cors
 SpeechRecognition
 ffmpeg-python
+torch
+whisper
