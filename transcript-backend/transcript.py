@@ -48,7 +48,7 @@ def transcribe():
             wav_file = convert_to_wav(tmp_filename)
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            model = load_whisper_model("large", device)
+            model = load_whisper_model("turbo", device)
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
