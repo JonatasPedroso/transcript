@@ -14,7 +14,19 @@ app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+def save_temp_audio_file(audio_data):
+    socketio.emit('progress_update', {'stage': 'Iniciando salvamento do arquivo de áudio temporário', 'progress': 5})
+    start_time = time.time()
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_filename = tmp_file.name
+        tmp_file.write(audio_data)
+    end_time = time.time()
+    print(f"save_temp_audio_file took {end_time - start_time:.2f} seconds")
+    socketio.emit('progress_update', {'stage': 'Salvamento do arquivo de áudio temporário concluído', 'progress': 15})
+    return tmp_filename
+
 def convert_to_wav(file):
+    socketio.emit('progress_update', {'stage': 'Iniciando conversão para wav', 'progress': 10})
     start_time = time.time()
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         tmp_filename = tmp_file.name + ".wav"
@@ -25,10 +37,11 @@ def convert_to_wav(file):
         subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     end_time = time.time()
     print(f"convert_to_wav took {end_time - start_time:.2f} seconds")
-    socketio.emit('progress_update', {'stage': 'convertendo para wav', 'progress': 25})
+    socketio.emit('progress_update', {'stage': 'Conversão para wav concluída', 'progress': 30})
     return tmp_filename
 
 def load_whisper_model(model_name, device):
+    socketio.emit('progress_update', {'stage': 'Iniciando carregamento do modelo Whisper', 'progress': 35})
     start_time = time.time()
     model_path = os.path.expanduser(f'~/.cache/whisper/{model_name}.pt')
     if os.path.exists(model_path):
@@ -37,7 +50,7 @@ def load_whisper_model(model_name, device):
     model = whisper.load_model(model_name, device=device).to(device)
     end_time = time.time()
     print(f"load_whisper_model took {end_time - start_time:.2f} seconds")
-    socketio.emit('progress_update', {'stage': 'carregando modelo whisper', 'progress': 50})
+    socketio.emit('progress_update', {'stage': 'Carregamento do modelo Whisper concluído', 'progress': 50})
     return model
 
 def transcribe_audio(data):
@@ -54,40 +67,32 @@ def transcribe_audio(data):
         print(f"Error during transcription: {e}")
         socketio.emit('transcription_error', {'error': "Erro ao transcrever o áudio."})
 
-def save_temp_audio_file(audio_data):
-    start_time = time.time()
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        tmp_filename = tmp_file.name
-        tmp_file.write(audio_data)
-    end_time = time.time()
-    print(f"save_temp_audio_file took {end_time - start_time:.2f} seconds")
-    socketio.emit('progress_update', {'stage': 'salvando arquivo de áudio temporário', 'progress': 10})
-    return tmp_filename
-
 def get_device():
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 def perform_transcription(model, wav_file):
+    socketio.emit('progress_update', {'stage': 'Iniciando transcrição', 'progress': 55})
     start_time = time.time()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         result = model.transcribe(wav_file, language="pt", temperature=0.0, word_timestamps=True)
     end_time = time.time()
     print(f"perform_transcription took {end_time - start_time:.2f} seconds")
-    socketio.emit('progress_update', {'stage': 'realizando transcrição', 'progress': 75})
+    socketio.emit('progress_update', {'stage': 'Transcrição concluída', 'progress': 75})
     return result["text"]
 
 def cleanup_temp_files(files):
+    socketio.emit('progress_update', {'stage': 'Iniciando limpeza dos arquivos temporários', 'progress': 80})
     start_time = time.time()
     for file in files:
         os.remove(file)
     end_time = time.time()
     print(f"cleanup_temp_files took {end_time - start_time:.2f} seconds")
-    socketio.emit('progress_update', {'stage': 'limpando arquivos temporários', 'progress': 90})
+    socketio.emit('progress_update', {'stage': 'Limpeza dos arquivos temporários concluída', 'progress': 90})
 
 def emit_transcription_result(transcription):
-    progress = 100
-    socketio.emit('transcription_complete', {'text': transcription, 'progress': progress})
+    socketio.emit('progress_update', {'stage': 'Transcrição completa', 'progress': 100})
+    socketio.emit('transcription_complete', {'text': transcription, 'progress': 100})
     print("Transcription result emitted")
 
 @socketio.on('start_transcription')

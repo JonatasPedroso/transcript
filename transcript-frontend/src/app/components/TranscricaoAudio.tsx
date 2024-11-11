@@ -21,7 +21,6 @@ const TranscricaoAudio: React.FC = () => {
     const [showProgress, setShowProgress] = useState<boolean>(false);
     const [progress, setProgress] = useState<number>(0);
     const [stage, setStage] = useState<string>('');
-    const [prevProgress, setPrevProgress] = useState<number>(0);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -54,7 +53,7 @@ const TranscricaoAudio: React.FC = () => {
         socket.on('progress_update', (data) => {
             const { stage, progress } = data;
             setStage(stage);
-            animateProgress(progress);
+            setProgress(progress);
             console.log(`Stage: ${stage}, Progress: ${progress}%`);
         });
 
@@ -66,9 +65,8 @@ const TranscricaoAudio: React.FC = () => {
             setIsLoading(false);
             setTimeout(() => {
                 setStage('');
-                animateProgress(0);
+                setProgress(0);
                 setShowProgress(false);
-                animateProgress(100);
             }, 5000);
         });
 
@@ -86,34 +84,11 @@ const TranscricaoAudio: React.FC = () => {
         };
     }, []);
 
-    const animateProgress = (newProgress: number) => {
-        if (newProgress <= prevProgress) return;
-
-        console.log(`Animating progress from ${prevProgress} to ${newProgress}`);
-
-        const duration = 1000;
-        const stepTime = 10;
-        const steps = duration / stepTime;
-        const increment = (newProgress - prevProgress) / steps;
-        let currentProgress = prevProgress;
-
-        const interval = setInterval(() => {
-            currentProgress += increment;
-            setProgress(Math.min(currentProgress, newProgress));
-            console.log(`Current progress: ${currentProgress}`);
-            if (currentProgress >= newProgress) {
-                clearInterval(interval);
-                setPrevProgress(newProgress);
-                console.log(`Animation complete. Progress: ${newProgress}`);
-            }
-        }, stepTime);
-    };
-
     const handleFileSelected = (selectedFile: File) => {
         setFile(selectedFile);
         setFileUrl(URL.createObjectURL(selectedFile));
         setTranscribedText('');
-        animateProgress(0);
+        setProgress(0);
         localStorage.removeItem('transcribedText');
     };
 
@@ -152,7 +127,7 @@ const TranscricaoAudio: React.FC = () => {
     };
 
     return (
-      <div>
+      <div className="container mx-auto p-4">
           <Alert visible={alertVisible || showAlert} text="Transcrição em progresso" timer={timer} />
           <DropZone onFileSelected={handleFileSelected} />
           {file && (
@@ -162,11 +137,10 @@ const TranscricaoAudio: React.FC = () => {
           {showProgress && (
             <div className="w-full rounded-full h-4 mb-4 mt-4">
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-blue-600 h-2.5 rounded-full transition-width duration-1000 ease-linear"
+                    <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
                          style={{width: `${progress}%`}}></div>
                 </div>
-                <div
-                  className="flex justify-between mb-1 transition-opacity duration-500 ease-in-out transform translate-y-0 opacity-100">
+                <div className="flex justify-between mb-1">
                     <span className="text-base font-medium text-black">{stage}</span>
                     <span className="text-sm font-medium text-black">{progress.toFixed(0)}%</span>
                 </div>
