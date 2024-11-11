@@ -62,7 +62,8 @@ def transcribe():
             return jsonify({"text": transcription})
 
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            print(f"Error during transcription: {e}")
+            return jsonify({"error": "Erro ao transcrever o áudio."}), 500
 
     else:
         return jsonify({"error": "Tipo de arquivo não suportado"}), 400
