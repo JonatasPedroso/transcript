@@ -58,8 +58,9 @@ const TranscricaoAudio: React.FC = () => {
         });
 
         socket.on('transcription_complete', (data) => {
-            setTranscribedText(data.text);
-            localStorage.setItem('transcribedText', data.text);
+            const trimmedText = data.text.trim();
+            setTranscribedText(trimmedText);
+            localStorage.setItem('transcribedText', trimmedText);
             showNotification('Transcrição Concluída', 'A transcrição do áudio foi concluída com sucesso.');
             setAlertVisible(false);
             setIsLoading(false);

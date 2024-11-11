@@ -7,3 +7,4 @@ openai-whisper
 flask-socketio
 python-socketio
 asyncio
+pydub

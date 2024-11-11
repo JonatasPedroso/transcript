@@ -1,14 +1,16 @@
 import os
-import whisper
-import torch
-from flask import Flask, request
-import tempfile
 import subprocess
-from flask_cors import CORS
-import warnings
-from flask_socketio import SocketIO, emit
+import tempfile
 import threading
 import time
+import warnings
+
+import torch
+import whisper
+from flask import Flask
+from flask_cors import CORS
+from flask_socketio import SocketIO
+from pydub import AudioSegment
 
 app = Flask(__name__)
 CORS(app)
@@ -53,6 +55,21 @@ def load_whisper_model(model_name, device):
     socketio.emit('progress_update', {'stage': 'Carregamento do modelo Whisper concluído', 'progress': 50})
     return model
 
+def split_audio(file, segment_length=60000):
+    audio = AudioSegment.from_wav(file)
+    segments = [audio[i:i + segment_length] for i in range(0, len(audio), segment_length)]
+    segment_files = []
+    for i, segment in enumerate(segments):
+        segment_file = f"{file}_segment_{i}.wav"
+        segment.export(segment_file, format="wav")
+        segment_files.append(segment_file)
+    return segment_files
+
+def transcribe_segment(model, segment_file, results, index):
+    result = perform_transcription(model, segment_file)
+    results[index] = result
+    os.remove(segment_file)
+
 def transcribe_audio(data):
     try:
         print("Starting transcription thread...")
@@ -60,7 +77,19 @@ def transcribe_audio(data):
         tmp_filename = save_temp_audio_file(audio_data)
         wav_file = convert_to_wav(tmp_filename)
         model = load_whisper_model("turbo", get_device())
-        transcription = perform_transcription(model, wav_file)
+        segment_files = split_audio(wav_file)
+        results = [None] * len(segment_files)
+        threads = []
+
+        for i, segment_file in enumerate(segment_files):
+            thread = threading.Thread(target=transcribe_segment, args=(model, segment_file, results, i))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        transcription = " ".join(results)
         cleanup_temp_files([tmp_filename, wav_file])
         emit_transcription_result(transcription)
     except Exception as e:
