@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import io from 'socket.io-client';
 import Alert from './Alert';
 import DropZone from './DropZone';
@@ -41,7 +41,7 @@ const TranscricaoAudio: React.FC = () => {
                 clearInterval(interval!);
             };
         }
-    }, [alertVisible]);
+    }, [alertVisible, timer]);
 
     useEffect(() => {
         if (Notification.permission === 'default') {
@@ -51,7 +51,7 @@ const TranscricaoAudio: React.FC = () => {
 
     useEffect(() => {
         socket.on('progress_update', (data) => {
-            const { stage, progress } = data;
+            const {stage, progress} = data;
             setStage(stage);
             setProgress(progress);
             console.log(`Stage: ${stage}, Progress: ${progress}%`);
@@ -111,7 +111,7 @@ const TranscricaoAudio: React.FC = () => {
         const reader = new FileReader();
         reader.onload = () => {
             const fileData = reader.result;
-            socket.emit('start_transcription', { audio: fileData });
+            socket.emit('start_transcription', {audio: fileData});
             setShowProgress(true);
         };
         reader.readAsArrayBuffer(file);
@@ -119,7 +119,7 @@ const TranscricaoAudio: React.FC = () => {
 
     const showNotification = (title: string, body: string) => {
         if (Notification.permission === 'granted') {
-            new Notification(title, { body, requireInteraction: true });
+            new Notification(title, {body, requireInteraction: true});
         }
     };
 
@@ -128,27 +128,27 @@ const TranscricaoAudio: React.FC = () => {
     };
 
     return (
-      <div className="container mx-auto p-4">
-          <Alert visible={alertVisible || showAlert} text="Transcrição em progresso" timer={timer} />
-          <DropZone onFileSelected={handleFileSelected} />
-          {file && (
-            <AudioPreview fileName={file.name} fileUrl={fileUrl} onRemove={handleRemoveAudio} />
-          )}
-          <TranscribeButton onClick={handleTranscribe} disabled={!file || isLoading} isLoading={isLoading} />
-          {showProgress && (
-            <div className="w-full rounded-full h-4 mb-4 mt-4">
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
-                         style={{width: `${progress}%`}}></div>
+        <div className="container mx-auto p-4">
+            <Alert visible={alertVisible || showAlert} text="Transcrição em progresso" timer={timer}/>
+            <DropZone onFileSelected={handleFileSelected}/>
+            {file && (
+                <AudioPreview fileName={file.name} fileUrl={fileUrl} onRemove={handleRemoveAudio}/>
+            )}
+            <TranscribeButton onClick={handleTranscribe} disabled={!file || isLoading} isLoading={isLoading}/>
+            {showProgress && (
+                <div className="w-full rounded-full h-4 mb-4 mt-4">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                             style={{width: `${progress}%`}}></div>
+                    </div>
+                    <div className="flex justify-between mb-1">
+                        <span className="text-base font-medium text-black">{stage}</span>
+                        <span className="text-sm font-medium text-black">{progress.toFixed(0)}%</span>
+                    </div>
                 </div>
-                <div className="flex justify-between mb-1">
-                    <span className="text-base font-medium text-black">{stage}</span>
-                    <span className="text-sm font-medium text-black">{progress.toFixed(0)}%</span>
-                </div>
-            </div>
-          )}
-          {transcribedText && <TranscribedText text={transcribedText} onChange={handleTextChange}/>}
-      </div>
+            )}
+            {transcribedText && <TranscribedText text={transcribedText} onChange={handleTextChange}/>}
+        </div>
     );
 };
 
